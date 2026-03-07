@@ -995,6 +995,7 @@ function ensure_membership_applications_table() {
       legal_address VARCHAR(255) DEFAULT NULL,
       desired_direction VARCHAR(190) DEFAULT NULL,
       motivation_text TEXT DEFAULT NULL,
+      is_called TINYINT(1) NOT NULL DEFAULT 0,
       created_at DATETIME NOT NULL,
       INDEX (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -1006,7 +1007,8 @@ function ensure_membership_applications_table() {
       "ALTER TABLE membership_applications ADD COLUMN age VARCHAR(20) DEFAULT NULL",
       "ALTER TABLE membership_applications ADD COLUMN legal_address VARCHAR(255) DEFAULT NULL",
       "ALTER TABLE membership_applications ADD COLUMN desired_direction VARCHAR(190) DEFAULT NULL",
-      "ALTER TABLE membership_applications ADD COLUMN motivation_text TEXT DEFAULT NULL"
+      "ALTER TABLE membership_applications ADD COLUMN motivation_text TEXT DEFAULT NULL",
+      "ALTER TABLE membership_applications ADD COLUMN is_called TINYINT(1) NOT NULL DEFAULT 0"
     ] as $alterSql) {
       try {
         db()->exec($alterSql);
