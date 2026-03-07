@@ -29,38 +29,15 @@ function safe_record_admin_login_log(string $username, ?int $adminId, string $st
     }
 }
 
-/* ---------------- HARD CAPTCHA (ONLY LOG + SQRT) ---------------- */
+/* ---------------- SIMPLE CAPTCHA (ADDITION) ---------------- */
 
 function set_captcha(): void
 {
-    // 50% square root, 50% logarithm
-    $type = random_int(1, 2);
+    $a = random_int(1, 20);
+    $b = random_int(1, 20);
 
-    /* -------- VERY HARD SQUARE ROOT -------- */
-    if ($type === 1) {
-
-        // Large perfect squares
-        $n = random_int(20, 80);   // √(400..6400)
-        $square = $n * $n;
-
-        $_SESSION['captcha_q'] = "√({$square})";
-        $_SESSION['captcha_expected'] = (string)$n;
-        return;
-    }
-
-    /* -------- VERY HARD LOGARITHM -------- */
-
-    // Choose base 2, 3, 5, or 10
-    $bases = [2, 3, 5, 10];
-    $base = $bases[array_rand($bases)];
-
-    // Higher exponent
-    $exp = random_int(3, 8); // makes it harder
-
-    $value = $base ** $exp;
-
-    $_SESSION['captcha_q'] = "log{$base}({$value})";
-    $_SESSION['captcha_expected'] = (string)$exp;
+    $_SESSION['captcha_q'] = "{$a} + {$b}";
+    $_SESSION['captcha_expected'] = (string)($a + $b);
 }
 
 /* ---------------- LOGIN STATE ---------------- */
