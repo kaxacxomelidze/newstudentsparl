@@ -4,8 +4,6 @@ require __DIR__ . '/inc/bootstrap.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-$success = (($_GET['submitted'] ?? '') === '1');
-
 $pageTitle = 'საქართველოს სტუდენტური პარლამენტი და მთავრობა — გაწევრიანების განაცხადი';
 $metaDescription = 'გაწევრიანების განაცხადი სტუდენტური პარლამენტისა და მთავრობისთვის.';
 $metaKeywords = 'გაწევრიანება, განაცხადი, სტუდენტური პარლამენტი, სტუდენტური მთავრობა';
@@ -52,7 +50,9 @@ function word_count_ka(string $text): int {
  * Adjust these two if your public URL differs:
  */
 $FORM_PATH = '/membership';                 // URL where this page is reachable
-$SUCCESS_URL = $FORM_PATH . '?submitted=1'; // success redirect
+$SUCCESS_TEXT = "📌მადლობას გიხდით  განაცხადის გამოგზავნისთვის! თქვენი აპლიკაცია წარმატებით მივიღეთ✅
+ჩვენი გუნდი განიხილავს მას და შედეგის შესახებ აუცილებლად დაგიკავშირდებით. წარმატებებს გისურვებთ!🌟🫶🏻";
+$isAjaxRequest = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
@@ -144,10 +144,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       ]);
     }
 
-    // ✅ IMPORTANT FIX: redirect to clean root URL (not relative, not php filename)
-    header('Location: ' . $SUCCESS_URL, true, 303);
+    if ($isAjaxRequest) {
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode(['ok' => true, 'message' => $SUCCESS_TEXT], JSON_UNESCAPED_UNICODE);
+      exit;
+    }
+
+    header('Location: ' . $FORM_PATH . '?submitted=1', true, 303);
     exit;
   }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjaxRequest) {
+  header('Content-Type: application/json; charset=utf-8');
+  echo json_encode(['ok' => false, 'errors' => $errors], JSON_UNESCAPED_UNICODE);
+  exit;
 }
 
 include __DIR__ . '/header.php';
@@ -178,20 +189,16 @@ include __DIR__ . '/header.php';
       <p style="margin:0">✨ ერთად გავაგრძელოთ სწავლა და განვითარება ✨</p>
     </div>
 
-    <?php if ($success): ?>
-      <div class="ok">განაცხადი წარმატებით გაიგზავნა.</div>
-    <?php endif; ?>
+    <div id="membership-success" class="ok" style="display:none;white-space:pre-line"><?= h($SUCCESS_TEXT) ?></div>
 
-    <?php if ($errors): ?>
-      <div class="err">
-        <?php foreach ($errors as $e): ?>
-          <div><?= h($e) ?></div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
+    <div id="membership-errors" class="err" style="<?= $errors ? '' : 'display:none' ?>">
+      <?php foreach ($errors as $e): ?>
+        <div><?= h($e) ?></div>
+      <?php endforeach; ?>
+    </div>
 
     <!-- ✅ IMPORTANT FIX: force POST to the clean URL -->
-    <form method="post" action="<?= h($FORM_PATH) ?>" style="background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;display:grid;gap:12px">
+    <form id="membership-form" method="post" action="<?= h($FORM_PATH) ?>" style="background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;display:grid;gap:12px">
       <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
 
       <div>
@@ -247,4 +254,52 @@ include __DIR__ . '/header.php';
     </form>
   </div>
 </section>
+
+<script>
+(() => {
+  const form = document.getElementById('membership-form');
+  if (!form) return;
+
+  const successBox = document.getElementById('membership-success');
+  const errorBox = document.getElementById('membership-errors');
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (successBox) successBox.style.display = 'none';
+    if (errorBox) errorBox.innerHTML = '';
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form),
+      });
+      const payload = await res.json();
+
+      if (payload.ok) {
+        if (successBox) {
+          successBox.textContent = payload.message || '';
+          successBox.style.display = 'block';
+        }
+        form.reset();
+      } else if (errorBox && Array.isArray(payload.errors)) {
+        errorBox.style.display = 'block';
+        errorBox.innerHTML = payload.errors.map((e) => `<div>${e}</div>`).join('');
+      }
+    } catch (e) {
+      if (errorBox) {
+        errorBox.style.display = 'block';
+        errorBox.innerHTML = '<div>დაფიქსირდა შეცდომა, სცადეთ თავიდან.</div>';
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+
 <?php include __DIR__ . '/footer.php'; ?>
